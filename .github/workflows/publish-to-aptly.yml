@@ -14,6 +14,20 @@ env:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    strategy: 
+      fail-fast: false
+      matrix:
+        include:
+          - name: hello
+            package: hello
+            artifact: hello-aarch64-unknown-linux-gnu.tar.gz
+            path: packages/hello
+
+          - name: bye
+            package: bye
+            artifact: bye-aarch64-unknown-linux-gnu.tar.gz
+            path: packages/bye
+
 
     steps:
     - uses: actions/checkout@v3
@@ -27,49 +41,63 @@ jobs:
     - name: Install cargo-deb
       run: cargo install cargo-deb
 
-    - name: Build project
-      run: cargo build --release
+    - name: Build [${{ matrix.package }}]
+      run: |
+        cd ${{ matrix.path }}
+        cargo build --release --package ${{ matrix.package }}
 
     - name: Create Debian package
-      run: cargo deb
-
-    - name: List files
-      run: ls -l target/debian
-
-    - name: Extract package details
-      id: package_details
       run: |
-        PACKAGE_NAME=$(ls target/debian/*.deb | xargs basename)
-        FOLDER_NAME=$(echo $PACKAGE_NAME | sed 's/_.*$//')
-        echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-        echo "folder_name=$FOLDER_NAME" >> $GITHUB_OUTPUT
-        echo "Package Name: $PACKAGE_NAME"
-        echo "Folder Name: $FOLDER_NAME"
+        cd ${{ matrix.path }}
+        cargo deb --no-build --package ${{ matrix.package }}
 
-    - name: Upload package to Aptly
-      run: |
-        echo "Uploading package: ${{ steps.package_details.outputs.package_name }}"
-        echo "To folder: ${{ steps.package_details.outputs.folder_name }}"
-        curl -X POST -F file=@target/debian/${{ steps.package_details.outputs.package_name }} ${{ env.APTLY_URL }}/api/files/${{ steps.package_details.outputs.folder_name }}
 
-    - name: Add package to local repo
+    - name: Prepare artifacts [${{ matrix.package }}]
       run: |
-        echo "Adding package from folder: ${{ steps.package_details.outputs.folder_name }}"
-        curl -X POST ${{ env.APTLY_URL }}/api/repos/${{ env.DEBIAN_REPO }}/file/${{ steps.package_details.outputs.folder_name }}
+        mkdir build
+        cp ${{ matrix.path }}/target/release/${{ matrix.package }} ./build
+        cp ${{ matrix.path }}/target/debian/*.deb ./build 
 
-    - name: Update local published repo
-      run: |
-        echo "Updating local published repo for distro: ${{ env.DISTRO }}"
-        curl -X PUT -H 'Content-Type: application/json' --data '{
-          "Architectures": ["arm64", "amd64"],
-          "Signing": {"Skip": true}
-        }' ${{ env.APTLY_URL }}/api/publish/:./${{ env.DISTRO }}
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact }}
+        path: ./build/*  
 
-    - name: Update S3 published repo
-      run: |
-        echo "Updating S3 published repo for distro: ${{ env.DISTRO }}"
-        curl -X PUT -H 'Content-Type: application/json' --data '{
-          "Sources": [{"Name": "${{ env.DEBIAN_REPO }}"}],
-          "Architectures": ["arm64", "amd64"],
-          "Signing": {"Skip": true}
-        }' ${{ env.APTLY_URL }}/api/publish/s3:debian.mecha.build:/${{ env.DISTRO }}
+    # - name: Extract package details
+    #   id: package_details
+    #   run: |
+    #     PACKAGE_NAME=$(ls target/debian/*.deb | xargs basename)
+    #     FOLDER_NAME=$(echo $PACKAGE_NAME | sed 's/_.*$//')
+    #     echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+    #     echo "folder_name=$FOLDER_NAME" >> $GITHUB_OUTPUT
+    #     echo "Package Name: $PACKAGE_NAME"
+    #     echo "Folder Name: $FOLDER_NAME"
+
+    # - name: Upload package to Aptly
+    #   run: |
+    #     echo "Uploading package: ${{ steps.package_details.outputs.package_name }}"
+    #     echo "To folder: ${{ steps.package_details.outputs.folder_name }}"
+    #     curl -X POST -F file=@target/debian/${{ steps.package_details.outputs.package_name }} ${{ env.APTLY_URL }}/api/files/${{ steps.package_details.outputs.folder_name }}
+
+    # - name: Add package to local repo
+    #   run: |
+    #     echo "Adding package from folder: ${{ steps.package_details.outputs.folder_name }}"
+    #     curl -X POST ${{ env.APTLY_URL }}/api/repos/${{ env.DEBIAN_REPO }}/file/${{ steps.package_details.outputs.folder_name }}
+
+    # - name: Update local published repo
+    #   run: |
+    #     echo "Updating local published repo for distro: ${{ env.DISTRO }}"
+    #     curl -X PUT -H 'Content-Type: application/json' --data '{
+    #       "Architectures": ["arm64", "amd64"],
+    #       "Signing": {"Skip": true}
+    #     }' ${{ env.APTLY_URL }}/api/publish/:./${{ env.DISTRO }}
+
+    # - name: Update S3 published repo
+    #   run: |
+    #     echo "Updating S3 published repo for distro: ${{ env.DISTRO }}"
+    #     curl -X PUT -H 'Content-Type: application/json' --data '{
+    #       "Sources": [{"Name": "${{ env.DEBIAN_REPO }}"}],
+    #       "Architectures": ["arm64", "amd64"],
+    #       "Signing": {"Skip": true}
+    #     }' ${{ env.APTLY_URL }}/api/publish/s3:debian.mecha.build:/${{ env.DISTRO }}
