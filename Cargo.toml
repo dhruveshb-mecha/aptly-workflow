@@ -1,0 +1,9 @@
+[package]
+name = "hello-form-workflow"
+version = "0.1.2"
+edition = "2021"
+description = "hello app form workflow"
+license = "MIT"
+authors = ["Dhrvesh Baria <dharuveshb@mechasystems.com>"]
+
+[dependencies]
