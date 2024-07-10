@@ -64,40 +64,48 @@ jobs:
         name: ${{ matrix.artifact }}
         path: ./build/*  
 
-    # - name: Extract package details
-    #   id: package_details
-    #   run: |
-    #     PACKAGE_NAME=$(ls target/debian/*.deb | xargs basename)
-    #     FOLDER_NAME=$(echo $PACKAGE_NAME | sed 's/_.*$//')
-    #     echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-    #     echo "folder_name=$FOLDER_NAME" >> $GITHUB_OUTPUT
-    #     echo "Package Name: $PACKAGE_NAME"
-    #     echo "Folder Name: $FOLDER_NAME"
+  publish-to-aptly:
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: "*.tar.gz"      
 
-    # - name: Upload package to Aptly
-    #   run: |
-    #     echo "Uploading package: ${{ steps.package_details.outputs.package_name }}"
-    #     echo "To folder: ${{ steps.package_details.outputs.folder_name }}"
-    #     curl -X POST -F file=@target/debian/${{ steps.package_details.outputs.package_name }} ${{ env.APTLY_URL }}/api/files/${{ steps.package_details.outputs.folder_name }}
+    - name: Extract package details
+      id: package_details
+      run: |
+        PACKAGE_NAME=$(ls target/debian/*.deb | xargs basename)
+        FOLDER_NAME=$(echo $PACKAGE_NAME | sed 's/_.*$//')
+        echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+        echo "folder_name=$FOLDER_NAME" >> $GITHUB_OUTPUT
+        echo "Package Name: $PACKAGE_NAME"
+        echo "Folder Name: $FOLDER_NAME"
 
-    # - name: Add package to local repo
-    #   run: |
-    #     echo "Adding package from folder: ${{ steps.package_details.outputs.folder_name }}"
-    #     curl -X POST ${{ env.APTLY_URL }}/api/repos/${{ env.DEBIAN_REPO }}/file/${{ steps.package_details.outputs.folder_name }}
+    - name: Upload package to Aptly
+      run: |
+        echo "Uploading package: ${{ steps.package_details.outputs.package_name }}"
+        echo "To folder: ${{ steps.package_details.outputs.folder_name }}"
+        curl -X POST -F file=@target/debian/${{ steps.package_details.outputs.package_name }} ${{ env.APTLY_URL }}/api/files/${{ steps.package_details.outputs.folder_name }}
 
-    # - name: Update local published repo
-    #   run: |
-    #     echo "Updating local published repo for distro: ${{ env.DISTRO }}"
-    #     curl -X PUT -H 'Content-Type: application/json' --data '{
-    #       "Architectures": ["arm64", "amd64"],
-    #       "Signing": {"Skip": true}
-    #     }' ${{ env.APTLY_URL }}/api/publish/:./${{ env.DISTRO }}
+    - name: Add package to local repo
+      run: |
+        echo "Adding package from folder: ${{ steps.package_details.outputs.folder_name }}"
+        curl -X POST ${{ env.APTLY_URL }}/api/repos/${{ env.DEBIAN_REPO }}/file/${{ steps.package_details.outputs.folder_name }}
 
-    # - name: Update S3 published repo
-    #   run: |
-    #     echo "Updating S3 published repo for distro: ${{ env.DISTRO }}"
-    #     curl -X PUT -H 'Content-Type: application/json' --data '{
-    #       "Sources": [{"Name": "${{ env.DEBIAN_REPO }}"}],
-    #       "Architectures": ["arm64", "amd64"],
-    #       "Signing": {"Skip": true}
-    #     }' ${{ env.APTLY_URL }}/api/publish/s3:debian.mecha.build:/${{ env.DISTRO }}
+    - name: Update local published repo
+      run: |
+        echo "Updating local published repo for distro: ${{ env.DISTRO }}"
+        curl -X PUT -H 'Content-Type: application/json' --data '{
+          "Architectures": ["arm64", "amd64"],
+          "Signing": {"Skip": true}
+        }' ${{ env.APTLY_URL }}/api/publish/:./${{ env.DISTRO }}
+
+    - name: Update S3 published repo
+      run: |
+        echo "Updating S3 published repo for distro: ${{ env.DISTRO }}"
+        curl -X PUT -H 'Content-Type: application/json' --data '{
+          "Sources": [{"Name": "${{ env.DEBIAN_REPO }}"}],
+          "Architectures": ["arm64", "amd64"],
+          "Signing": {"Skip": true}
+        }' ${{ env.APTLY_URL }}/api/publish/s3:debian.mecha.build:/${{ env.DISTRO }}
