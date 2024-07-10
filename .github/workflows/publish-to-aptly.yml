@@ -71,6 +71,7 @@ jobs:
 
     - name: Upload package to Aptly
       run: |
+        cd ${{ matrix.path }}
         echo "Uploading package: ${{ steps.package_details.outputs.package_name }}"
         echo "To folder: ${{ steps.package_details.outputs.folder_name }}"
         curl -X POST -F file=@target/debian/${{ steps.package_details.outputs.package_name }} ${{ env.APTLY_URL }}/api/files/${{ steps.package_details.outputs.folder_name }}
