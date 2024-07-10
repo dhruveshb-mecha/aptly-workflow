@@ -7,9 +7,11 @@ on:
     branches: [ main ]
 
 env:
-  APTLY_URL: http://18.227.102.140
-  DISTRO: apollo
-  DEBIAN_REPO: mechanix-deb-alpha
+  environment: alpha
+  APTLY_URL: ${{ vars.APTLY_URL }}
+  DISTRO: ${{ vars.DISTRO }}
+  DEBIAN_REPO: ${{ vars.DEBIAN_REPO }} 
+  S3_BUCKET: ${{ vars.S3_BUCKET }}
 
 jobs:
   build-and-publish:
@@ -96,7 +98,7 @@ jobs:
           "Sources": [{"Name": "${{ env.DEBIAN_REPO }}"}],
           "Architectures": ["arm64", "amd64"],
           "Signing": {"Skip": true}
-        }' ${{ env.APTLY_URL }}/api/publish/s3:debian.mecha.build:/${{ env.DISTRO }}
+        }' ${{ env.APTLY_URL }}/api/publish/s3:${{env.S3_BUCKET}}:/${{ env.DISTRO }}
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
