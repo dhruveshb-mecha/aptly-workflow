@@ -1,3 +1,3 @@
 fn main() {
-    println!("Hello, world!");
+    println!("Bye, world!, form aptly, version 0.1.1");
 }

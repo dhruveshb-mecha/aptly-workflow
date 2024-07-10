@@ -1,6 +1,7 @@
 [package]
 name = "hello"
-version = "0.1.0"
+version = "0.1.1"
+description = "A simple hello world program in Rust. Served you via aptly"
 edition = "2021"
 license = "MIT"
 authors = ["Dhruvesh Baria"]
